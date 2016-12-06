@@ -1,0 +1,48 @@
+letsencrypt-certs:
+  image: busybox
+  volumes:
+    - "/etc/nginx/certs"
+  command: echo "Letsencrypt certificate volume"
+  autoredeploy: false
+
+nginx-config:
+  image: busybox
+  volumes:
+    - /etc/nginx/conf.d
+    - /etc/nginx/vhost.d
+    - /usr/share/nginx/html
+  command: echo "Nginx config volume"
+  autoredeploy: false
+
+nginx-proxy:
+  image: nginx:1-alpine
+  ports:
+    - '80:80'
+    - '443:443'
+  volumes_from:
+    - letsencrypt-certs
+    - nginx-config
+
+nginx-gen:
+  image: carlosbaraza/nginx-proxy-gen-docker-cloud:latest
+  volumes:
+    - "/var/run/docker.sock:/tmp/docker.sock:ro"
+  volumes_from:
+    - nginx-config
+    - letsencrypt-certs
+  environment:
+    - NGINX_PROXY_SERVICE=nginx-proxy
+  roles:
+   - global
+
+nginx-letsencrypt:
+  environment:
+    - NGINX_DOCKER_GEN_CONTAINER=nginx-gen
+  image: 'carlosbaraza/docker-cloud-letsencrypt-nginx-proxy-companion:latest'
+  roles:
+    - global
+  volumes:
+    - '/var/run/docker.sock:/var/run/docker.sock:ro'
+  volumes_from:
+    - letsencrypt-certs
+    - nginx-config
